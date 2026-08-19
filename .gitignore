@@ -1,0 +1,13 @@
+# This repo (the project root) intentionally does not track backend/ or
+# frontend/ — each is its own separate git repository with its own
+# history. See README.md's "Version control layout" section.
+/backend/
+/frontend/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+
+# Local scratch/output that shouldn't be committed at the root
+/_to_delete/

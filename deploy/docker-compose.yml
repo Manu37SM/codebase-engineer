@@ -1,0 +1,32 @@
+# Self-hosting quick-start (Phase 25). See ../docs/DEPLOYMENT.md for full
+# detail on what this does and doesn't cover (no built-in auth/TLS — see
+# that doc before exposing this beyond your own machine/network).
+#
+# Lives in deploy/ alongside the Dockerfile and the systemd unit, but the
+# build context is still the repo root (see `build.context` below) — run
+# this from the repo root with `--project-directory .` so the `./repos`
+# bind mount below resolves against the repo root, not this directory; see
+# the root README's "Running with Docker" section for the exact command.
+#
+# Edit the second volume line below to point at the real directory on your
+# machine containing the repositories you want to analyze — the app can
+# only see paths that exist *inside* this container, so a repository must
+# be bind-mounted in before you can register its in-container path (e.g.
+# /repos/my-project) via the "Register repository" UI or API. The example
+# below mounts a `./repos` directory at the repo root (see the
+# `--project-directory .` note above).
+services:
+  codebase-engineer:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: codebase-engineer:latest
+    ports:
+      - "4000:4000"
+    volumes:
+      - codebase-engineer-data:/data
+      - ./repos:/repos:ro
+    restart: unless-stopped
+
+volumes:
+  codebase-engineer-data:
