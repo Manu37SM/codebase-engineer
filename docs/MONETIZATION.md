@@ -102,3 +102,67 @@ suites: 332/332 backend, 86/86 frontend, both stable across repeated runs.
 - No multi-tenant/team billing — single-instance singleton only.
 - No proration, refunds, or invoice management.
 - No pricing page beyond the in-app Settings/Billing status view.
+
+## 6. Setup Guide (turning billing on, step by step)
+
+This section is for a server operator who wants to actually enable the Pro
+upgrade flow on their own instance. Nobody needs to do any of this for the
+app to work — see the opt-in note at the top of this file. **The app never
+asks for these credentials through a form; they're only ever set as
+environment variables, on the machine actually running the backend.**
+
+1. **Get real Razorpay API keys.** Sign up / log in at
+   [dashboard.razorpay.com](https://dashboard.razorpay.com), then go to
+   Settings → API Keys and generate a key pair. Start with **Test Mode**
+   keys (prefixed `rzp_test_`) to try the flow safely before switching to
+   Live Mode keys (`rzp_live_`) — the app doesn't care which mode's keys
+   you use, Razorpay routes test-vs-live automatically based on the key
+   prefix. This gives you `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`.
+
+2. **Set up a webhook to get `RAZORPAY_WEBHOOK_SECRET`.** In the Razorpay
+   dashboard, go to Settings → Webhooks → Add New Webhook. Point it at
+   `https://<your-server>/api/v1/billing/webhook` (this server must be
+   publicly reachable over HTTPS for Razorpay to deliver to it — a plain
+   `http://localhost` URL only works if you're tunneling it, e.g. with
+   `ngrok`, for local testing). Subscribe at least to the
+   `payment.captured` event (that's what `webhookVerify.ts` and
+   `subscriptionRepo.ts` act on). Razorpay shows you a webhook secret at
+   creation time — copy it; that's `RAZORPAY_WEBHOOK_SECRET`.
+
+3. **Set the three environment variables where the backend process will see
+   them.** This app does not read a `.env` file automatically unless you
+   create one at `backend/.env` — copy `backend/.env.example` to
+   `backend/.env` and fill in the three `RAZORPAY_*` values (the file is
+   gitignored, so it's safe to put real secrets in it). `dotenv/config` is
+   imported first thing in `src/server.ts`, so anything in `backend/.env`
+   is loaded automatically the next time the server starts — no other
+   change needed. If you'd rather not use a `.env` file, any of these work
+   exactly as well, since `loadBillingConfig()` just reads
+   `process.env` — pick whichever fits how you're already running this:
+   - **PowerShell (current session only):**
+     `$env:RAZORPAY_KEY_ID = "rzp_test_..."` (repeat for the other two),
+     then `npm run dev` in the same terminal.
+   - **PowerShell (persist across restarts):**
+     `[System.Environment]::SetEnvironmentVariable("RAZORPAY_KEY_ID", "rzp_test_...", "User")`
+     (repeat for the other two, then open a new terminal).
+   - **bash/zsh:** `export RAZORPAY_KEY_ID=rzp_test_...` before starting the
+     server, or add the exports to your shell profile / a process
+     supervisor's env config.
+   - **systemd:** add `Environment=RAZORPAY_KEY_ID=...` lines (or an
+     `EnvironmentFile=` pointing at a file in the same `KEY=value` shape as
+     `.env.example`) to the unit file.
+   - **Docker / docker compose:** add them under `environment:` in
+     `deploy/docker-compose.yml`, or pass `--env-file backend/.env` to
+     `docker run` / `docker compose up`.
+
+4. **Restart the backend.** `GET /api/v1/billing/status` should now report
+   `configured: true`, and the Settings/Billing page in the app will show
+   the Free/Pro tier UI and usage instead of "Billing is not configured on
+   this server."
+
+5. **Test the flow with Test Mode keys before ever using Live Mode ones.**
+   Razorpay's test mode lets you complete a full checkout with their
+   documented test card numbers — no real money moves. Only switch
+   `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` to `rzp_live_...` values (and
+   point the webhook at the same URL under live mode) once you've confirmed
+   a test-mode checkout activates Pro correctly end to end.

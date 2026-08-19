@@ -1,16 +1,46 @@
 # Current Progress
 
-**Phase:** All 26 roadmap phases complete. Two pieces of post-roadmap work
-are now also in progress at the user's explicit request: (1) a Windows
-testrunner timeout bug, round 2 — a real pasted Windows `npm test` run
-surfaced a genuine hang the round-1 fix didn't cover, now fixed and
-awaiting a third confirmation run; (2) a repo-layout change (per-subproject
-git repos + READMEs, deployment files moved into `deploy/`) — implemented,
-awaiting the user's confirmation that the moved/new files landed correctly
-on their machine and that `git init` at the root went as expected.
+**Phase:** All 26 roadmap phases complete, plus a third round of
+post-roadmap work: a combined bug-fix + feature-request pass covering the
+live "Bad Request" bug, the "tests never run" fabrication bug, light/dark
+mode, a real unified Changes page, a Razorpay setup guide, real Dashboard
+charts, a command palette, and live activity indicators — implemented,
+tested (342 backend / 109 frontend, both run twice for stability), and
+transferred to the user's Windows checkout. Two earlier pieces of
+post-roadmap work are also still tracked: (1) a Windows testrunner timeout
+bug, round 2 — fixed, still awaiting a third confirmation run with real
+Windows `npm test` output; (2) a repo-layout change (per-subproject git
+repos + READMEs, deployment files moved into `deploy/`) — implemented and
+previously confirmed clean on the user's machine.
 **Last updated:** 2026-08-19
 
 ## In progress
+- **Combined bug-fix + feature pass** (this round, complete and
+  transferred): fixed the live Repositories page's `FST_ERR_CTP_EMPTY_JSON_BODY`
+  "Bad Request" bug (frontend was sending `Content-Type: application/json`
+  on bodyless GET requests) and the "tests never run" bug (a `?? 0`
+  fabrication bug in `testRunRepo.ts` hiding genuinely-unknown counts
+  behind a fake zero — fixed with nullable counts end to end, migration
+  `012_test_run_nullable_counts.sql`, plus a real `node --test` output
+  parser since that's the framework the user's own `job-bot` project
+  uses). Added: light/dark mode (`ThemeContext.tsx` + Tailwind `class`
+  dark mode); a real unified Changes page (`/changes`, replacing the old
+  placeholder — `listPatchesForProject`/`listGeneratedTestsForProject` +
+  `GET /api/v1/projects/:id/changes`); a Razorpay setup guide
+  (`backend/.env.example` + `docs/MONETIZATION.md` §6 + automatic `.env`
+  loading via `dotenv/config` — credentials stay environment-variable-only,
+  never an in-app form, per the user's explicit choice); real Dashboard
+  charts via `recharts` (severity breakdown, findings trend — backed by a
+  new `analysis_run` severity snapshot, migration
+  `013_analysis_run_severity_snapshot.sql` — language breakdown, churn
+  hotspots); a Cmd/Ctrl+K command palette (`CommandPalette.tsx`); and live
+  activity indicators (`ActivityIndicator.tsx` — real elapsed time, no
+  fabricated progress percentage) on scan/analysis/test/AI actions. Full
+  detail in `docs/CHANGELOG.md`'s "Unreleased (continued further)"
+  section and the new `docs/FEATURE.md` row. 342/342 backend (was 332),
+  109/109 frontend (was 86), both suites run twice for stability; both
+  builds (`tsc -b`/`vite build`) clean; transferred to the user's Windows
+  checkout and committed to `backend/`'s and `frontend/`'s own git repos.
 - **Windows test-runner fix, round 3** (round 2 was insufficient — see
   below): a real pasted Windows `npm test` run showed
   `runTests — real process execution > kills a long-running command on
@@ -116,6 +146,6 @@ on their machine and that `git init` at the root went as expected.
   follow requested response formats; every AI-Mode advisory workflow
   surfaces the model's own claims for a human to weigh, without
   independently verifying them against the code.
-- Backend: 332/332 tests passing, full rebuild clean, stable across
-  repeated runs. Frontend: 86/86 tests passing, full rebuild clean,
+- Backend: 342/342 tests passing, full rebuild clean, stable across
+  repeated runs. Frontend: 109/109 tests passing, full rebuild clean,
   `tsc -b` clean, `vite build` clean.

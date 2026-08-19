@@ -584,3 +584,98 @@
   file) from the repo root into `docs/`, alongside the rest of the
   documentation set. `docs/DEPLOYMENT.md` and the root `README.md`
   updated for the new paths/commands.
+
+## Unreleased (continued further — user-requested feature pass)
+
+Requested as a single combined ask: "Fix it [the live Repositories 'Bad
+Request' bug and the Tests page always showing 0/0/0] and then also add a
+light/dark mode and then also I have razorpay so add the billing and then
+tests never run I think and then add whatever makes this website crazy and
+cool Features and all" plus "Remember it should be free" (Free Mode had to
+keep working exactly as before throughout). Scope for the ambiguous parts
+was clarified up front rather than guessed: real `node --test` parsing
+(not just relabeling), a real unified Changes review queue (not a
+placeholder), Razorpay credentials set only via environment variables (no
+in-app secret form), and all three "cool feature" options (charts,
+command palette, live activity indicators).
+
+### Fixed
+- **Live Repositories page "Bad Request" error**, root-caused (not
+  guessed) by reading Fastify's own source: `frontend/src/lib/api.ts`'s
+  `request()` unconditionally sent `Content-Type: application/json` even
+  on bodyless GET requests, which Fastify rejects with
+  `FST_ERR_CTP_EMPTY_JSON_BODY` (a real bug hit on the user's own live
+  instance, not a sandbox-only issue). Now only sent when a body is
+  actually present; error-message extraction also now prefers the
+  server's `message` over the generic `error` reason phrase.
+- **"Tests never run" / always 0 passed, 0 failed, 0 skipped**,
+  root-caused via the user's own real `job-bot` project (which uses
+  `node --test`): `testRunRepo.ts` was coercing genuinely-unknown counts
+  to `0` with `?? 0`, hiding "we don't know how to parse this framework's
+  output" behind a fake, confident-looking zero — a violation of this
+  project's "never fabricate" convention. Fixed at the root: counts are
+  now nullable end to end (migration `012_test_run_nullable_counts.sql`,
+  `TestRunRecord.passed/failed/skipped: number | null`), and the
+  frontend honestly renders "unknown"/"counts unknown" instead of a
+  fabricated 0. Additionally implemented a real parser for Node's
+  built-in test runner (`node --test`, `detect.ts` + `parse.ts`'s new
+  `parseNodeTestOutput()`), since that's the framework the user's own
+  project actually uses — verified against a real captured
+  `node --test` TAP summary and a real end-to-end run with 2 passing + 1
+  failing test, not fabricated from memory.
+
+### Added
+- **Changes page** (`/changes`) — replaced the old static placeholder
+  ("implemented in Phase 17/18") with a real unified review queue:
+  every AI-proposed patch and every generated test across the whole
+  project, in one place, with the same approve/reject/generate/apply/
+  write-and-run actions the Findings page's inline per-finding view
+  already had. Backend: `listPatchesForProject`/`listGeneratedTestsForProject`
+  (left-joined with `finding` for rule/file/severity context, since a
+  patch's finding can in principle no longer exist) and a new
+  `GET /api/v1/projects/:id/changes` route aggregating both.
+- **Light/dark mode** — a three-way `system`/`light`/`dark` preference
+  (`ThemeContext.tsx`), persisted to `localStorage`, applied via
+  Tailwind's `class`-based dark mode plus a toggle button in the nav
+  sidebar. Newer/updated pages use explicit `dark:` utility variants;
+  every other existing page gets a consistent dark appearance via
+  shared `.dark` overrides in `index.css` for the common slate/white
+  utility palette already used throughout the app, so no page was left
+  half-styled.
+- **Razorpay billing setup guide** — `backend/.env.example` (all
+  variables the backend reads, including the optional `RAZORPAY_*`
+  ones) and a new step-by-step §6 in `docs/MONETIZATION.md` (getting
+  API keys, setting up the webhook, and setting the three required env
+  vars on Windows/PowerShell, macOS/Linux, systemd, or Docker). The
+  backend now also loads a `backend/.env` file automatically via
+  `dotenv/config` if one exists (gitignored, zero effect on deployments
+  that already set real env vars). The user explicitly chose not to
+  have an in-app secret-entry form — Razorpay credentials are
+  environment-variable-only, by design.
+- **Findings/trends charts** (Dashboard) — real charts built from data
+  this app already computes, using `recharts`: current findings by
+  severity (pie), findings trend over time (line, per-severity),
+  languages by file count (bar), and Git churn hotspots (bar). The
+  trend chart required one small, real schema addition — migration
+  `013_analysis_run_severity_snapshot.sql` snapshots the real
+  per-severity finding counts onto `analysis_run` the moment each run
+  finishes (existing `finding` rows get wholesale-replaced on every
+  re-run, so a historical breakdown wasn't otherwise derivable). Runs
+  from before this migration show as a gap in the trend line, not a
+  fabricated zero.
+- **Command palette** (Cmd/Ctrl+K) — jump to any page, switch the
+  selected repository, or toggle the theme without the mouse
+  (`CommandPalette.tsx`), reachable via the shortcut or a visible
+  "Search…" button in the nav sidebar.
+- **Live activity indicators** — replaced static "Loading…"/"Running…"
+  text on the genuinely slow actions (repository scan, run analysis,
+  run tests, and the AI explain/root-cause/fix-plan/self-review calls)
+  with `ActivityIndicator.tsx`: an animated spinner plus a real elapsed-
+  time counter drawn from the browser's own clock. Deliberately does
+  NOT show a fabricated progress percentage — these backend routes are
+  each one blocking request with no real incremental-progress signal to
+  report, and inventing one would violate the same "never fabricate"
+  convention as the test-count fix above.
+
+Tests: 342/342 backend (up from 332), 109/109 frontend (up from 86), both
+run twice in a row for stability before being reported here.
