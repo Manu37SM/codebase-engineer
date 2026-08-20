@@ -679,3 +679,71 @@ command palette, live activity indicators).
 
 Tests: 342/342 backend (up from 332), 109/109 frontend (up from 86), both
 run twice in a row for stability before being reported here.
+
+## Unreleased (continued further still — auth + import/apply-mode arc)
+
+User-requested arc adding real authentication and several new ways to
+register a project, plus a per-project choice for how AI-Mode patches get
+applied. Every item below honors the user's explicit architectural
+constraint: self-hosted/local-first only, OAuth used strictly for
+authentication and repository/Drive access on the signed-in user's own
+behalf, no hosted multi-user SaaS redesign, no per-user server-side
+storage beyond this single instance's own SQLite database and local disk.
+
+### Added
+- **Local authentication** — email/password accounts (`bcrypt` hashing),
+  session cookies, and Cloudflare Turnstile bot-protection on register/
+  login. Fully optional: an instance with zero registered users stays in
+  open/legacy mode (`authRequired: false`), matching every prior phase's
+  behavior; auth only activates once a first account actually exists.
+- **Google and GitHub OAuth sign-in** — both independent and optional,
+  either links to an existing local account (matched by email) or
+  creates a new passwordless one. Access/refresh tokens encrypted at
+  rest (AES-256-GCM, `backend/src/auth/crypto.ts`).
+- **GitHub repo browser + clone-to-register** — `GET /api/v1/github/repos`
+  + `POST /api/v1/github/import`, using the `repo`-scoped token from
+  GitHub sign-in to list and clone (including private repos) directly
+  into a new registered project, no URL to hand-copy.
+- **Generic git-URL and zip/download-URL registration** — two more
+  "Register a repository" sources alongside the local path: clone any
+  git URL, or download-and-extract any zip archive URL, with automatic
+  single-top-level-directory flattening for the common GitHub/GitLab
+  "Download ZIP" shape.
+- **Google Drive zip-file picker** — `GET /api/v1/google-drive/zips` +
+  `POST /api/v1/google-drive/import`, mirroring the GitHub repo browser
+  for Google Drive: browse zip files in the signed-in user's own Drive
+  (via the newly added `drive.readonly` OAuth scope) and import one
+  directly. Refreshes the access token from the stored refresh token on
+  every use, since Drive browsing can happen well after the ~1 hour
+  access-token lifetime.
+- **Multi-project-in-folder detection** — reuses the existing
+  gitignore-aware file walker to find nested project marker files
+  (`package.json`, `pom.xml`, `pyproject.toml`, `go.mod`, `Cargo.toml`,
+  `composer.json`, `Gemfile`, `*.csproj`/`*.sln`) at any depth inside an
+  already-registered project, with a Repositories-page picker to
+  register any of them as separate projects.
+- **Broadened language + test-runner support** — 11 more languages
+  detected (Python, Ruby, Go, C#, PHP, C, C++, SQL, Rust, Kotlin,
+  Swift), and the test runner gained Go (`go test`), .NET
+  (`dotnet test`), RSpec, and pytest detection + execution + output
+  parsing, each gated on real project-marker files rather than a bare
+  file extension.
+- **Per-project apply-mode setting** — `direct` (default, unchanged
+  prior behavior: an approved AI-Mode patch writes straight to the
+  real project) or `download` (the patch is packaged into a
+  ready-to-unzip archive instead, via `buildPatchZip()` reusing the
+  same `applyPatchToDisk()` machinery against a scratch temp directory
+  — nothing is ever written to the real project in this mode). The
+  download route is available in either mode.
+- **Collapsible sidebar** — icon-only collapsed state, persisted.
+- **Navigation/onboarding fixes** — a guided empty state for a
+  first-time user instead of a blank page; "Dashboard" renamed to
+  "Workspace" with a real remove-project action (forgets this app's own
+  record only — a repository's actual files on disk are never touched).
+
+Tests: 447/447 backend (up from 342), 136/136 frontend (up from 109),
+both suites stable across repeated runs; both builds
+(`tsc -b`/`vite build`, backend's `tsc -p tsconfig.json` +
+migration/frontend copy) clean. Full per-task detail in
+`docs/FEATURE.md`; the full auth/OAuth setup and scope rationale is in
+`docs/AUTH.md`.

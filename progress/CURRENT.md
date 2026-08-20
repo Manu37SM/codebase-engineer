@@ -1,92 +1,77 @@
 # Current Progress
 
-**Phase:** All 26 roadmap phases complete, plus a third round of
-post-roadmap work: a combined bug-fix + feature-request pass covering the
-live "Bad Request" bug, the "tests never run" fabrication bug, light/dark
-mode, a real unified Changes page, a Razorpay setup guide, real Dashboard
-charts, a command palette, and live activity indicators — implemented,
-tested (342 backend / 109 frontend, both run twice for stability), and
-transferred to the user's Windows checkout. Two earlier pieces of
-post-roadmap work are also still tracked: (1) a Windows testrunner timeout
-bug, round 2 — fixed, still awaiting a third confirmation run with real
-Windows `npm test` output; (2) a repo-layout change (per-subproject git
-repos + READMEs, deployment files moved into `deploy/`) — implemented and
-previously confirmed clean on the user's machine.
-**Last updated:** 2026-08-19
+**Phase:** All 26 roadmap phases complete, the earlier post-roadmap
+bug-fix + feature pass complete, and now a full authentication +
+import/apply-mode feature arc (Tasks #80–#94) complete: local
+email/password accounts with sessions, Cloudflare Turnstile bot
+protection, Google and GitHub OAuth sign-in, a GitHub repo browser and a
+Google Drive zip-file picker for one-click project registration (in
+addition to the existing local-path/git-URL/zip-URL sources), generic
+git-URL and zip/download-URL registration, multi-project-in-folder
+detection, broadened language/test-runner support (Go, .NET, RSpec,
+pytest, plus 11 more languages), a per-project apply-mode setting
+(direct-to-disk vs. download-as-zip for AI-Mode patches), a collapsible
+sidebar, navigation/onboarding UX fixes, and a Workspace rename with a
+remove-project action. All of it implemented, tested, and transferred to
+the user's Windows checkout, committed to all three git repos (root,
+`backend/`, `frontend/`).
+**Last updated:** 2026-08-20
 
-## In progress
-- **Combined bug-fix + feature pass** (this round, complete and
-  transferred): fixed the live Repositories page's `FST_ERR_CTP_EMPTY_JSON_BODY`
-  "Bad Request" bug (frontend was sending `Content-Type: application/json`
-  on bodyless GET requests) and the "tests never run" bug (a `?? 0`
-  fabrication bug in `testRunRepo.ts` hiding genuinely-unknown counts
-  behind a fake zero — fixed with nullable counts end to end, migration
-  `012_test_run_nullable_counts.sql`, plus a real `node --test` output
-  parser since that's the framework the user's own `job-bot` project
-  uses). Added: light/dark mode (`ThemeContext.tsx` + Tailwind `class`
-  dark mode); a real unified Changes page (`/changes`, replacing the old
-  placeholder — `listPatchesForProject`/`listGeneratedTestsForProject` +
-  `GET /api/v1/projects/:id/changes`); a Razorpay setup guide
-  (`backend/.env.example` + `docs/MONETIZATION.md` §6 + automatic `.env`
-  loading via `dotenv/config` — credentials stay environment-variable-only,
-  never an in-app form, per the user's explicit choice); real Dashboard
-  charts via `recharts` (severity breakdown, findings trend — backed by a
-  new `analysis_run` severity snapshot, migration
-  `013_analysis_run_severity_snapshot.sql` — language breakdown, churn
-  hotspots); a Cmd/Ctrl+K command palette (`CommandPalette.tsx`); and live
-  activity indicators (`ActivityIndicator.tsx` — real elapsed time, no
-  fabricated progress percentage) on scan/analysis/test/AI actions. Full
-  detail in `docs/CHANGELOG.md`'s "Unreleased (continued further)"
-  section and the new `docs/FEATURE.md` row. 342/342 backend (was 332),
-  109/109 frontend (was 86), both suites run twice for stability; both
-  builds (`tsc -b`/`vite build`) clean; transferred to the user's Windows
-  checkout and committed to `backend/`'s and `frontend/`'s own git repos.
-- **Windows test-runner fix, round 3** (round 2 was insufficient — see
-  below): a real pasted Windows `npm test` run showed
-  `runTests — real process execution > kills a long-running command on
-  timeout and reports timedOut` still failing, hanging until Vitest's own
-  unrelated 10s per-test timeout rather than resolving on the function's
-  real 300ms `timeoutMs`, plus the same run's `EBUSY: resource busy or
-  locked` on temp-directory cleanup. Root cause: even with round 1's
-  `detached: false`, `taskkill /pid <pid> /t /f` doesn't reliably make the
-  child's `close` event fire on Windows (grandchild processes spawned
-  through npm's `.cmd` wrapper can hold duplicate handles to the piped
-  stdio streams). Fix: `backend/src/testrunner/run.ts` now applies a
-  bounded 2-second grace period after killing the tree, force-resolving
-  with `timedOut: true` if `close` still hasn't fired — no behavior change
-  on POSIX. `backend/test/fixtures.ts`'s `cleanupRepo()` now uses
-  `fs.rmSync`'s built-in `maxRetries`/`retryDelay` to absorb the
-  transient Windows file-lock race on cleanup. Verified in the Linux
-  sandbox (332/332, twice) and transferred to the user's Windows
-  checkout — **still awaiting a third real pasted Windows `npm test` run
-  to confirm this round actually closes it out**, since round 1 looked
-  sufficient in the sandbox too and wasn't.
-- **Repo layout change**, at the user's explicit request (they'd
-  independently already set up `backend/` and `frontend/` as separate git
-  repos and asked for a root git repo, per-subproject READMEs, and the
-  Docker/MD files organized): added `backend/README.md` and
-  `frontend/README.md`; moved `Dockerfile`/`docker-compose.yml` from the
-  repo root into `deploy/` (build context unchanged — still the repo
-  root; compose file updated with `build.context: ..`, `dockerfile:
-  deploy/Dockerfile`; docs updated with the new `-f deploy/... --project-
-  directory .` invocation); moved `CHANGELOG.md` into `docs/`; added a
-  root `.gitignore` excluding `/backend/` and `/frontend/` (each stays
-  independently version-controlled, per the user's explicit choice — not
-  folded into one history); root `README.md` gained a "Version control
-  layout" section explaining the three-separate-repos structure. The
-  actual `git init` + first commit at the project root, and the `backend`/
-  `frontend` repos' own commits of their pending changes, were run
-  directly against the user's real Windows checkout via the device
-  bridge's shell access (not just files delivered for the user to run
-  manually) — see `docs/CHANGELOG.md`'s "Changed" entry for the full
-  list of what moved. Real friction hit and worked around along the way:
-  the device bridge's mounted filesystem cannot delete files (`rm`
-  reliably fails with `Operation not permitted`even for a stale git
-  `index.lock`) — `mv` (rename) works fine, so moves used `mv`, and any
-  leftover file that would normally be deleted got moved into a
-  `_to_delete/` folder at the project root for the user to remove
-  themselves (see the "Notes" callout below for exactly what's in there,
-  if anything's left after cleanup).
+## Status
+- **Auth + import/apply-mode arc (Tasks #80–#94): complete.** Every task
+  in the range implemented, tested, and transferred/committed to the
+  Windows checkout; `git status --short` is clean in all three repos
+  (root, `backend/`, `frontend/`) as of this update. Full per-feature
+  detail is in `docs/FEATURE.md`'s rows for each task; `docs/AUTH.md`
+  covers the local-account and both OAuth flows end to end, including
+  exactly which scopes are requested and why.
+  - **#80–81**: local accounts (email/password, `bcrypt`, session
+    cookies) + Cloudflare Turnstile on register/login.
+  - **#82–83**: Google and GitHub OAuth sign-in, both optional/independent,
+    tokens encrypted at rest (AES-256-GCM).
+  - **#84**: GitHub repo browser + clone-to-register, using the
+    `repo`-scoped token from GitHub sign-in.
+  - **#85**: generic git-URL clone and zip/download-URL import as two
+    more registration sources.
+  - **#86**: Google Drive zip-file picker — `drive.readonly` scope added
+    to Google sign-in, an access-token refresh helper using the stored
+    refresh token (Drive browsing can happen well after the ~1 hour
+    access-token lifetime), `GET /api/v1/google-drive/zips` +
+    `POST /api/v1/google-drive/import`, and a fifth "Google Drive" mode
+    in the register-project form.
+  - **#87**: multi-project-in-folder detection (reuses the existing
+    gitignore-aware file walker to find nested `package.json`/`pom.xml`/
+    etc. marker files) + a Repositories-page picker to register any of
+    them separately.
+  - **#88**: collapsible, icon-only sidebar with a persisted preference.
+  - **#89**: broadened language detection (11 more languages) and
+    test-runner support (Go, .NET, RSpec, pytest), with real
+    process-execution tests against actually-installed `pytest`/`go`.
+  - **#90**: per-project apply-mode setting — an approved AI-Mode patch
+    either writes straight to the real project ("direct", the default,
+    unchanged prior behavior) or is downloadable as a pre-applied zip
+    ("download") without ever touching the real files, via
+    `buildPatchZip()` reusing the same `applyPatchToDisk()` machinery
+    against a scratch temp directory.
+  - **#91**: the auth system's routes are actually enforced (a single
+    `authGuard` choke point on every request) with real login/register
+    UI, not just present-but-unused scaffolding.
+  - **#93–94**: navigation/onboarding UX fixes (an empty-state that
+    guides a first-time user rather than a blank page) and a rename of
+    the old "Dashboard" concept to "Workspace" with a real remove/delete
+    project action (workspace-record-only — a repository's actual files
+    on disk are never touched by "Remove").
+- All work in this arc followed the user's binding architectural
+  constraint, restated for each task: self-hosted/local-first only.
+  GitHub/Google OAuth are used strictly for authentication and
+  repository/Drive access on the *signed-in user's own* behalf — no
+  third-party server, no per-user server-side storage beyond this
+  single instance's own SQLite database and local disk, and no hosted
+  multi-user SaaS redesign anywhere in the arc.
+- **Test counts as of this update**: 447/447 backend tests, 136/136
+  frontend tests, both suites run clean, both builds (`tsc -b`/
+  `vite build`, and the backend's own `tsc -p tsconfig.json` +
+  migration/frontend copy steps) clean.
 
 ## Notes
 - Phase 26 added an entirely opt-in monetization architecture: with no
@@ -108,30 +93,18 @@ previously confirmed clean on the user's machine.
   `frontend/src/pages/Billing.tsx`, now served at `/settings`, with an
   honest degrade path when the Razorpay Checkout widget script isn't
   loaded (a real order is still created; the UI says so rather than
-  faking success). 27 new backend tests (332/332 total, including a real
-  end-to-end test making 50 real successful AI calls then confirming a
-  real 51st is blocked with 402) and 7 new frontend tests (86/86 total).
-  Both suites stable across 2 repeated runs; both builds (`tsc -b`/
-  `vite build`) clean. Full detail in `docs/MONETIZATION.md` (rewritten
-  from "not implemented" to reflect what's actually built) and
+  faking success). Full detail in `docs/MONETIZATION.md` and
   `docs/FEATURE.md`.
 - Phase 25 added self-hosting: a real root `Dockerfile` (multi-stage,
   Debian-based for `better-sqlite3` glibc compatibility, installs `git`
   as a real runtime dependency, runs as an unprivileged user) plus
   `docker-compose.yml`, and a systemd user unit
-  (`deploy/codebase-engineer.service`) for a non-Docker Linux path. Both
-  were actually exercised, not just written: the Docker path was built
-  and run end to end (a real container, real curl requests, a real
-  bind-mounted repo registered and analyzed through the real API
-  producing 61 real findings, and persistence confirmed across a full
-  container recreation via a named volume); the systemd path was
-  verified with `systemd-analyze verify`, which caught and led to fixing
-  a genuine portability bug (a hardcoded Node path) but could not be
-  verified as a live-running service in this sandbox (documented as
-  such, not glossed over). New `docs/DEPLOYMENT.md` covers both paths in
-  full, plus an explicit, unambiguous callout that this product has no
-  built-in authentication — a self-hoster exposing it beyond their own
-  machine needs to add their own reverse proxy + auth.
+  (`deploy/codebase-engineer.service`) for a non-Docker Linux path. See
+  `docs/DEPLOYMENT.md` — note its pre-#80 callout that the product had
+  no built-in authentication is now superseded by the #80–#91 auth
+  system; a self-hoster exposing the instance beyond their own machine
+  should still put it behind their own reverse proxy/TLS as defense in
+  depth, but the app itself now gates every route.
 - Phase 24 (earlier) added single-process packaging (the backend can
   serve the built frontend) — see `docs/PACKAGING.md`.
 - Phase 23 was a measure-first performance pass (~48% faster full scan
@@ -146,6 +119,6 @@ previously confirmed clean on the user's machine.
   follow requested response formats; every AI-Mode advisory workflow
   surfaces the model's own claims for a human to weigh, without
   independently verifying them against the code.
-- Backend: 342/342 tests passing, full rebuild clean, stable across
-  repeated runs. Frontend: 109/109 tests passing, full rebuild clean,
+- Backend: 447/447 tests passing, full rebuild clean, stable across
+  repeated runs. Frontend: 136/136 tests passing, full rebuild clean,
   `tsc -b` clean, `vite build` clean.
