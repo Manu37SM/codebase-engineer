@@ -18,20 +18,22 @@ shell access to a shared dev box) — not standing up a public SaaS.
 Concretely, that has real security consequences documented once here
 rather than repeated in every section below:
 
-- **There is no built-in authentication.** Every route under `/api/v1/*`
-  is reachable by anyone who can reach the port — Phase 0 through Phase 24
-  never added a login/session/API-key layer for the product's own HTTP
-  surface (this is separate from, and unrelated to, the per-provider API
-  keys AI Mode stores for talking to an *AI* provider — see
-  `docs/SECURITY.md` §5). The default `HOST=127.0.0.1` keeps the dev
-  server loopback-only for exactly this reason. If you deploy this
-  anywhere reachable beyond your own machine (a home server, a VPS, a
-  container host), put a reverse proxy in front of it that terminates TLS
-  and requires authentication (HTTP basic auth, an OAuth proxy like
-  `oauth2-proxy`, your own VPN/Tailscale, etc.) — this document does not
-  do that for you, and shipping it pre-wired to a specific auth provider
-  isn't something this phase decided to do (a real, separate decision,
-  not made here).
+- **Built-in authentication is opt-in, not on by default.** As of the auth
+  system added after Phase 25 (see `docs/AUTH.md`), the instance runs in
+  "open" mode — no login wall on any route, the same behavior this product
+  has always had — until you actually register the first account (email +
+  password, or Google/GitHub OAuth). The moment one account exists, every
+  route under `/api/v1/*` except the auth routes themselves and the health
+  check starts requiring a valid session. There is no way to go back to
+  open mode short of deleting every row from the `user` table. The default
+  `HOST=127.0.0.1` still keeps the dev server loopback-only regardless of
+  auth mode, which matters most while you're still in open mode. If you
+  deploy this anywhere reachable beyond your own machine, register an
+  account (turning on the login wall) AND put a reverse proxy in front of
+  it that terminates TLS — see "Going live behind a reverse proxy" below;
+  relying on the built-in auth alone, over plain HTTP, on a network you
+  don't fully trust, still leaves the session cookie and login form
+  readable to anyone on the network path.
 - **A project's `root_path` must exist inside wherever the process is
   running.** This was true before this phase (`docs/SECURITY.md` §2) and
   doesn't change here — it just becomes more visible in a container,
@@ -176,11 +178,46 @@ dogfood the way the Docker path got. Treat this path as verified-by-static-
 analysis-plus-component-testing, not verified-by-live-run, and report back
 if `systemctl --user enable --now` behaves unexpectedly on a real machine.
 
+## Going live behind a reverse proxy
+
+Once you've registered an account (turning on the login wall — see
+`docs/AUTH.md`) and want to reach this instance from somewhere other than
+`localhost`/your own LAN, put a real reverse proxy (Caddy, nginx, Traefik,
+Cloudflare Tunnel, etc.) in front of the Node process to terminate TLS.
+Two things need to be true for the session cookie to behave correctly once
+you do:
+
+1. **The proxy must forward `X-Forwarded-Proto: https`** (and normally
+   `X-Forwarded-For`) to this process — every proxy listed above does this
+   by default or with one config line (e.g. Caddy's `reverse_proxy` does it
+   automatically; nginx needs `proxy_set_header X-Forwarded-Proto $scheme;`).
+2. **Set `TRUST_PROXY=1`** in this process's environment (see
+   `backend/.env.example`). This tells Fastify to trust those forwarded
+   headers — without it, the app has no way to know the proxy terminated
+   TLS on the client's behalf, since this Node process itself always only
+   ever speaks plain HTTP to the proxy.
+
+With both of those in place, the auth session cookie's `secure` flag turns
+on automatically (it's derived from the actual request protocol, not
+hardcoded — see `setSessionCookie` in `backend/src/routes/auth.ts`), so the
+cookie is only ever sent back over HTTPS once you're actually running over
+HTTPS. Skip `TRUST_PROXY` (the default) for local dev or any setup where
+this process is reached directly and there's no proxy to trust — turning it
+on without a real proxy in front would let any client spoof its own
+`X-Forwarded-*` headers.
+
+This is exactly the same "reverse proxy handles the public TLS/network
+edge, the app itself stays a plain local process" shape called out
+generally in the section above, now with the specific two settings the
+built-in auth system needs to cooperate with it correctly.
+
 ## Explicit non-goals for Phase 25
 
 Consistent with `docs/PRD.md` §7 and the scoping note carried over from
 Phase 24 (`docs/PACKAGING.md`'s "scope" section): no managed/hosted
-multi-tenant offering, no built-in authentication layer, no auto-updater,
-no native OS installer (`.exe`/`.dmg`/`.deb`) or desktop shell
-(Electron/Tauri) — none of those were decided here, and none should be
-inferred from what shipped in this phase.
+multi-tenant offering (the auth system added later is single-instance,
+local-account/OAuth login — not a per-user SaaS backend; see
+`docs/AUTH.md`), no auto-updater, no native OS installer
+(`.exe`/`.dmg`/`.deb`) or desktop shell (Electron/Tauri) — none of those
+were decided here, and none should be inferred from what shipped in this
+phase.
