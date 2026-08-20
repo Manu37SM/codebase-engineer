@@ -73,6 +73,24 @@ Nothing in the local email/password flow depends on either being set up.
    — it redirects to Google, and the callback logs the browser in and
    redirects back to `/`.
 
+Google sign-in requests the `drive.readonly` scope (in addition to
+`openid email profile`) — not just for authentication, but because the
+Google Drive zip-file picker (`GET /api/v1/google-drive/zips`,
+`POST /api/v1/google-drive/import` — "Register a repository" → Google
+Drive tab in the UI) uses the same account to list and download a zip
+file from the signed-in user's own Drive. `drive.readonly` (rather than
+the narrower `drive.file`) is required because it's the only scope that
+allows *listing/searching existing files* by mimetype — `drive.file` can
+only see files the app itself created or that the user opened through
+Google's own file picker widget. The access token is encrypted at rest
+(AES-256-GCM, see `backend/src/auth/crypto.ts`); since Drive browsing can
+happen well after the ~1 hour access-token lifetime, the stored
+`refresh_token` (also requested via `access_type=offline`/`prompt=consent`,
+already the case before Task #86) is used to mint a fresh access token on
+each Drive request. Nothing is proxied or cached server-side beyond the
+encrypted token itself — a picked zip file is downloaded and extracted
+straight onto this same machine, exactly like the plain zip-URL import.
+
 ### GitHub
 
 1. In GitHub, go to **Settings → Developer settings → OAuth Apps → New
