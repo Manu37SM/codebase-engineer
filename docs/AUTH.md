@@ -89,12 +89,15 @@ Nothing in the local email/password flow depends on either being set up.
 4. Point a "Sign in with GitHub" link/button at `GET /api/v1/auth/github/start`.
 
 GitHub sign-in requests the `repo` scope (in addition to `read:user
-user:email`) — not just for authentication, but because a later feature
-(repo browsing/clone-to-register) uses the same access token to list and
-clone the signed-in user's repositories on their own behalf. The token is
-encrypted at rest (AES-256-GCM, see `backend/src/auth/crypto.ts`) using
+user:email`) — not just for authentication, but because the GitHub repo
+browser (`GET /api/v1/github/repos`, `POST /api/v1/github/import` —
+"Register a repository" → GitHub tab in the UI) uses the same access
+token to list and clone the signed-in user's repositories (including
+private ones) on their own behalf. The token is encrypted at rest
+(AES-256-GCM, see `backend/src/auth/crypto.ts`) using
 `AUTH_TOKEN_ENCRYPTION_KEY` and is never used for anything the UI didn't
-explicitly trigger.
+explicitly trigger — cloning still happens onto this same machine, under
+its own data directory, exactly like the plain git-URL import.
 
 ### Linking behavior
 
