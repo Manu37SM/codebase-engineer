@@ -11,3 +11,11 @@ Thumbs.db
 
 # Local scratch/output that shouldn't be committed at the root
 /_to_delete/
+
+# Real secrets for `docker compose --project-directory .` deployments
+# (AUTH_TOKEN_ENCRYPTION_KEY, OAuth client secrets, Razorpay keys, etc. —
+# see deploy/docker-compose.yml's `environment:` block and GO_LIVE.md).
+# Never commit this.
+/.env
+.oracle-vm-key
+.oracle-vm-key.pub

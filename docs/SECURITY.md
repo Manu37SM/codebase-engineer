@@ -203,13 +203,18 @@ doc):**
 
 **Real, currently-open gaps — flagged rather than silently left
 undocumented:**
-- **Turnstile bot verification is backend-only plumbing.** `auth/turnstile.ts`
-  and the `turnstileToken` field exist and are checked server-side, but
-  no frontend page actually renders the Cloudflare Turnstile widget or
-  populates that field — so today it only activates if `TURNSTILE_SECRET_KEY`
-  is set AND a caller supplies a token some other way. Building the
-  actual widget requires the user's own Cloudflare site key, which is
-  their call to obtain and configure, not something to fabricate.
+- ~~Turnstile bot verification is backend-only plumbing~~ — **closed.** The
+  frontend widget (`frontend/src/components/TurnstileWidget.tsx`,
+  `frontend/src/lib/turnstile.ts`) is now wired into both the login and
+  register forms, gated on the build-time `VITE_TURNSTILE_SITE_KEY` env
+  var (unset = renders nothing, exactly today's behavior). CSP's
+  `script-src`/`frame-src`/`connect-src` were extended to allow
+  `challenges.cloudflare.com` (`backend/src/security/headers.ts`) and the
+  Docker build now threads the site key through as a build ARG (Vite env
+  vars are baked in at build time, not read at container runtime — see
+  `deploy/Dockerfile` and `deploy/docker-compose.yml`'s `build.args`).
+  Still requires the operator's own Cloudflare site/secret key pair,
+  which is their call to obtain — nothing here fabricates one.
 - **No password-reset feature exists at all** (no forgot-password route,
   no reset-link email). This means "expire reset links," "rate limit
   password resets," and "reset sessions on password change" from the

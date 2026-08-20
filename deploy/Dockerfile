@@ -20,6 +20,13 @@
 # ---- Stage 1: build the frontend ----
 FROM node:22-bookworm-slim AS frontend-build
 WORKDIR /app/frontend
+# Vite env vars are baked into the built JS at build time, not read at
+# container runtime — so the Turnstile site key (meant to be public, see
+# docs/AUTH.md §4) has to come in as a build ARG, not a compose
+# `environment:` entry. Empty by default, which keeps Turnstile off
+# (frontend/src/lib/turnstile.ts treats an unset/empty key as "disabled").
+ARG VITE_TURNSTILE_SITE_KEY=""
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./

@@ -20,12 +20,36 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      args:
+        # Baked into the built frontend JS (Vite env vars are build-time,
+        # not runtime) — see deploy/Dockerfile's frontend-build stage.
+        # Reads from a `.env` file next to this compose file, or your
+        # shell environment, at `docker compose build` time. Leave unset
+        # to keep the Turnstile widget off (default, matches docs/AUTH.md §4).
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
     image: codebase-engineer:latest
     ports:
       - "4000:4000"
     volumes:
       - codebase-engineer-data:/data
       - ./repos:/repos:ro
+    environment:
+      # All optional — see backend/.env.example for the full list (Google/
+      # GitHub OAuth, Turnstile secret key, Razorpay billing). None of these
+      # are required for the app to run; only AUTH_TOKEN_ENCRYPTION_KEY and
+      # TRUST_PROXY are commonly set (see docs/DEPLOYMENT.md and GO_LIVE.md).
+      - AUTH_TOKEN_ENCRYPTION_KEY=${AUTH_TOKEN_ENCRYPTION_KEY:-}
+      - TRUST_PROXY=${TRUST_PROXY:-}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - GITHUB_REDIRECT_URI=${GITHUB_REDIRECT_URI:-}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET:-}
     restart: unless-stopped
 
 volumes:

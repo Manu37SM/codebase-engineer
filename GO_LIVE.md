@@ -145,9 +145,13 @@ Optional at this point, not required to go live safely:
 - **Google/GitHub OAuth sign-in** — set the four/three env vars from
   `docs/AUTH.md` §3 if you want "Sign in with Google/GitHub" instead of
   (or alongside) email/password.
-- **Cloudflare Turnstile** — set `TURNSTILE_SECRET_KEY` /
-  `VITE_TURNSTILE_SITE_KEY` if you want bot protection on the login form
-  on top of the IP-based rate limiting that's already built in.
+- **Cloudflare Turnstile** — set `TURNSTILE_SECRET_KEY` (backend env var)
+  and `VITE_TURNSTILE_SITE_KEY` (a Docker build ARG, not a runtime env
+  var — see `deploy/docker-compose.yml`'s `build.args`, since Vite bakes
+  it into the built JS) if you want bot protection on the login form on
+  top of the IP-based rate limiting that's already built in. Changing
+  either requires `docker compose ... up -d --build` (not just a restart)
+  since the site key only takes effect at build time.
 
 ## 7. Firewall
 
@@ -208,8 +212,7 @@ Before sharing the URL with anyone:
 - **Logs:** `docker compose -f deploy/docker-compose.yml logs -f`.
 - **Known open items** (from the recent security audit, `docs/SECURITY.md`
   §10) worth revisiting as the app grows: account lockout is currently
-  IP-based only, not per-account; there's no password-reset flow yet;
-  Turnstile isn't wired into the frontend even if you configure the keys
-  above (it's backend-verified but the widget itself needs the frontend
-  piece connected) — check `docs/SECURITY.md` before assuming any of these
-  are handled.
+  IP-based only, not per-account; there's no password-reset flow yet —
+  check `docs/SECURITY.md` before assuming either of these is handled.
+  (Turnstile's frontend widget is now wired in — see step 6 above; set
+  both env vars and rebuild the image to turn it on.)
