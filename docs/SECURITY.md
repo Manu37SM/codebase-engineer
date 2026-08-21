@@ -176,7 +176,7 @@ requires an explicit human approval step (`approved_for_apply` status)
 before `/apply` will act on it, which is this product's actual defense
 against prompt injection (not a content filter, a mandatory human
 in the loop); AI usage is capped per Phase 26's billing module when
-configured; Razorpay webhooks are HMAC-verified (`billing/webhookVerify.ts`)
+configured; Dodo Payments webhooks are HMAC-verified (`billing/webhookVerify.ts`)
 and prices/limits are read server-side from `billing/types.ts`'s
 `TIER_LIMITS`, never trusted from the client.
 

@@ -60,8 +60,15 @@ FROM node:22-bookworm-slim AS runtime
 # base image — see docs/DEPLOYMENT.md; extend this image with a JDK +
 # Maven if you need to run Maven-based test suites from inside the
 # container.
+# ca-certificates is required alongside git, not implied by it — without
+# it, `git clone https://...` fails with "server certificate verification
+# failed. CAfile: none CRLfile: none" because there's no root CA bundle
+# in the image at all to validate GitHub's (or any HTTPS remote's)
+# certificate against. --no-install-recommends means git's own package
+# doesn't pull this in automatically even though it needs it at runtime.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git \
+    && apt-get install -y --no-install-recommends git ca-certificates \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # The node:*-bookworm-slim base image already ships an unprivileged

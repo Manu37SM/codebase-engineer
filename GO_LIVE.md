@@ -82,7 +82,7 @@ or `env_file` block to `deploy/docker-compose.yml`):
 - `TRUST_PROXY=1` — set this once the reverse proxy (step 4) is in place,
   not before. See step 5.
 - Anything else in `backend/.env.example` is genuinely optional — leave it
-  unset unless you're specifically turning that feature on (Razorpay
+  unset unless you're specifically turning that feature on (Dodo Payments
   billing, Turnstile, OAuth).
 
 ## 4. Put a reverse proxy in front of it for TLS

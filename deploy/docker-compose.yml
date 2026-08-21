@@ -35,9 +35,9 @@ services:
       - ./repos:/repos:ro
     environment:
       # All optional — see backend/.env.example for the full list (Google/
-      # GitHub OAuth, Turnstile secret key, Razorpay billing). None of these
-      # are required for the app to run; only AUTH_TOKEN_ENCRYPTION_KEY and
-      # TRUST_PROXY are commonly set (see docs/DEPLOYMENT.md and GO_LIVE.md).
+      # GitHub OAuth, Turnstile secret key, Dodo Payments billing). None of
+      # these are required for the app to run; only AUTH_TOKEN_ENCRYPTION_KEY
+      # and TRUST_PROXY are commonly set (see docs/DEPLOYMENT.md and GO_LIVE.md).
       - AUTH_TOKEN_ENCRYPTION_KEY=${AUTH_TOKEN_ENCRYPTION_KEY:-}
       - TRUST_PROXY=${TRUST_PROXY:-}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
@@ -47,9 +47,12 @@ services:
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
       - GITHUB_REDIRECT_URI=${GITHUB_REDIRECT_URI:-}
       - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
-      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
-      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
-      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET:-}
+      - DODO_PAYMENTS_API_KEY=${DODO_PAYMENTS_API_KEY:-}
+      - DODO_PAYMENTS_WEBHOOK_KEY=${DODO_PAYMENTS_WEBHOOK_KEY:-}
+      - DODO_PRODUCT_ID=${DODO_PRODUCT_ID:-}
+      - DODO_PAYMENTS_ENVIRONMENT=${DODO_PAYMENTS_ENVIRONMENT:-}
+      - DODO_API_BASE_URL=${DODO_API_BASE_URL:-}
+      - DODO_RETURN_URL=${DODO_RETURN_URL:-}
     restart: unless-stopped
 
 volumes:

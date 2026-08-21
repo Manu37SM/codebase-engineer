@@ -75,7 +75,7 @@ Last updated: 2026-08-19 (Phase 25)
 | Feature | Priority | Status | Notes |
 |---|---|---|---|
 | Usage accounting (requests/tokens/limits) internal model | P1 | Not Started | Phase 12/13 groundwork; no billing |
-| Razorpay billing integration | P3 | Done (tested) | See the Phase 26 row above and `/docs/MONETIZATION.md` |
+| Razorpay billing integration | P3 | Done (tested), later re-pointed at Dodo Payments | See the Phase 26 row above and `/docs/MONETIZATION.md`. Razorpay's merchant onboarding rejected this product's live account (self-hosted software falls under their restricted "hosting" category) — billing was rebuilt against Dodo Payments instead, same architecture/isolation principle, see `/docs/MONETIZATION.md` §2. |
 | Team functionality | P3 | Not Started | Post-MVP |
 
 **Rule:** nothing in this table is marked "Done" unless it has been implemented,
