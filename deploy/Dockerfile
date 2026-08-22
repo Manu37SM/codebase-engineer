@@ -66,9 +66,30 @@ FROM node:22-bookworm-slim AS runtime
 # in the image at all to validate GitHub's (or any HTTPS remote's)
 # certificate against. --no-install-recommends means git's own package
 # doesn't pull this in automatically even though it needs it at runtime.
+#
+# python3/python3-pip/pytest: added so the Tests page's pytest support
+# (backend/src/testrunner/{detect,run,parse}.ts already had pytest
+# detection and output parsing implemented) actually has something to
+# invoke. Before this, `pytest` didn't exist in the runtime image at all —
+# `runTests()` would spawn it, get an OS-level ENOENT, and resolve with a
+# null exit code and empty stdout/stderr, which the frontend rendered as a
+# confusing "exit code (blank), counts unknown" instead of a clear "pytest
+# isn't installed" error (see run.ts's `child.on("error", ...)` handler,
+# fixed alongside this to surface the real spawn error either way, for any
+# framework whose runtime is still missing). `--break-system-packages` is
+# required on Debian bookworm's Python (PEP 668 marks the system
+# interpreter externally-managed); this is a throwaway container image, not
+# a shared host, so there's no "other system tooling" to conflict with.
+# This only provides the `pytest` binary itself — a project's own test
+# dependencies (e.g. anything imported by its test files beyond the stdlib)
+# still need to be present, same limitation the npm-script/vitest path has
+# for `node_modules`. Maven (needs a JDK), Go, .NET, and RSpec (needs Ruby)
+# remain documented gaps — see docs/DEPLOYMENT.md — since those runtimes
+# are each substantially heavier than Python.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates \
+    && apt-get install -y --no-install-recommends git ca-certificates python3 python3-pip \
     && update-ca-certificates \
+    && pip3 install --no-cache-dir --break-system-packages pytest \
     && rm -rf /var/lib/apt/lists/*
 
 # The node:*-bookworm-slim base image already ships an unprivileged

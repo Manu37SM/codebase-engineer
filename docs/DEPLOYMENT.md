@@ -53,10 +53,18 @@ addon needs to be glibc-compatible with the runtime, and copying prebuilt
 `node_modules` between same-base-image stages avoids a second native
 compile in the final image). `git` is installed in the runtime image
 (Git analysis, diff review, and patch apply all shell out to a real `git`
-binary — see `docs/FEATURE.md` Phases 8/17/18) — but not a JDK/Maven, so
-the built-in test runner's Maven support (Phase 9) won't work against a
-Java project inside this image unless you extend it with your own
-`apt-get install default-jdk maven` layer.
+binary — see `docs/FEATURE.md` Phases 8/17/18), and so is `python3` +
+`pytest`, so the built-in test runner can run pytest-based Python
+projects out of the box (it only provides the `pytest` binary itself — a
+project's own test dependencies beyond the stdlib still need to be
+importable, same limitation the npm-script/vitest path has for a missing
+`node_modules`). A JDK/Maven, Go, and Ruby are **not** installed, so the
+test runner's Maven, Go, and RSpec support (Phase 9) won't work against
+those projects inside this image unless you extend it with your own
+`apt-get install default-jdk maven` / `golang-go` / `ruby-full` layer. If
+a test command can't even be launched because its runtime is missing, the
+Tests page now shows the real "command not found" error in the raw output
+panel instead of a blank exit code.
 
 The Dockerfile and compose file live in `deploy/` (alongside the systemd
 unit), but the Docker **build context is still the repo root** — every
