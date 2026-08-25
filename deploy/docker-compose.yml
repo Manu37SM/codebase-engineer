@@ -31,7 +31,15 @@
 services:
   codebase-engineer:
     build:
-      context: ..
+      # Absolute path, not the original relative "..". See the KNOWN BUG
+      # note above: some Docker Compose v5 builds resolve a relative
+      # `context: ..` against the wrong base directory when
+      # `--project-directory .` is passed explicitly alongside
+      # `-f deploy/docker-compose.yml` — this hit that exact bug on the
+      # Oracle VM (`resolve : lstat /home/opc/deploy: no such file or
+      # directory`). Hardcoded to this deployment's real checkout path
+      # rather than left relative.
+      context: /home/opc/codebase-engineer
       dockerfile: deploy/Dockerfile
       args:
         # Baked into the built frontend JS (Vite env vars are build-time,
