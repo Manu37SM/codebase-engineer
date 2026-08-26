@@ -1,40 +1,19 @@
-# Codebase Engineer — systemd user service (Phase 25 self-hosting, non-Docker path).
-#
-# Install (per-user service, runs as the user who owns the checkout —
-# never as root; this app only ever needs read/write access to the
-# repositories you register and its own data directory):
-#   mkdir -p ~/.config/systemd/user
-#   cp deploy/codebase-engineer.service ~/.config/systemd/user/
-#   # Edit WorkingDirectory/ExecStart below to your real checkout path first.
-#   systemctl --user daemon-reload
-#   systemctl --user enable --now codebase-engineer
-#   loginctl enable-linger "$USER"   # so it keeps running after you log out
-#
-# See docs/DEPLOYMENT.md for the full self-hosting guide, including the
-# Docker alternative and the security caveats (no built-in auth — keep
-# this on loopback/your LAN behind your own reverse proxy + auth if you
-# need remote access).
+
+
 [Unit]
 Description=Codebase Engineer (local-first developer platform)
 After=network.target
 
 [Service]
 Type=simple
-# CHANGE THIS to the real absolute path of your checkout's backend/ directory.
+
 WorkingDirectory=%h/codebase-engineer/backend
-# `env node` resolves via PATH rather than hardcoding an install location —
-# Node is installed in very different places depending on how you got it
-# (a system package at /usr/bin/node, nvm under ~/.nvm, a version manager
-# under /opt, etc.), and systemd user services only get a minimal default
-# PATH. If `systemctl --user status codebase-engineer` shows "node: not
-# found", add a line here pointing PATH at wherever `which node` reports
-# on your machine, e.g.: Environment=PATH=/opt/node22/bin:/usr/bin:/bin
+
 ExecStart=/usr/bin/env node dist/server.js
 Restart=on-failure
 RestartSec=5
 Environment=PORT=4000
 Environment=HOST=127.0.0.1
-# Environment=CODEBASE_ENGINEER_DATA_DIR=%h/.codebase-engineer  # this is already the default
 
 [Install]
 WantedBy=default.target

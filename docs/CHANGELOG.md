@@ -747,3 +747,174 @@ both suites stable across repeated runs; both builds
 migration/frontend copy) clean. Full per-task detail in
 `docs/FEATURE.md`; the full auth/OAuth setup and scope rationale is in
 `docs/AUTH.md`.
+
+## Unreleased (Findings UX pass — export, shortcuts, copy)
+
+Small, low-risk Free-Mode UI polish, all client-side (no backend or schema
+changes):
+
+- **Findings export (CSV/JSON)** — an "Export ▾" button on the Findings
+  page (`frontend/src/lib/exportFindings.ts`) downloads exactly the
+  currently-filtered findings as `<project>-findings.csv` or `.json` via a
+  client-side `Blob`/`<a download>`, no round trip to the server beyond the
+  data already loaded. Null fields render as empty CSV cells, never a
+  fabricated placeholder.
+- **Copy finding to clipboard** — a "⧉ Copy" button on each finding copies
+  its severity/category/location, evidence, and recommendation as plain
+  text via `navigator.clipboard`, with a transient "Copied" confirmation;
+  fails silently (no fabricated success state) if the Clipboard API is
+  unavailable or permission is denied.
+- **Keyboard shortcuts help modal** — a new `?`-triggered dialog
+  (`frontend/src/components/KeyboardShortcutsModal.tsx`), mounted in
+  `NavShell` alongside the existing Cmd/Ctrl+K command palette, listing
+  the app's current keyboard shortcuts. Ignored while typing in a text
+  field. Also reachable from a visible sidebar button for discoverability,
+  mirroring the existing "Search…" button's pattern.
+
+New frontend tests: `exportFindings.test.ts` (CSV/JSON generation,
+escaping, null handling), `KeyboardShortcutsModal.test.tsx` (open via `?`,
+ignored while typing, custom open event, Escape to close). `tsc -b`
+type-checks clean. The full `npm test` suite could not be executed to
+completion in this working session (the sandbox's `vitest` process hung
+past its time budget against this project's network-mounted working
+directory, reproduced even against a pre-existing, untouched test file) —
+run `npm test` locally to confirm before relying on the counts above.
+
+## Unreleased (comment removal pass — user-requested)
+
+Per explicit user instruction ("strip ALL comments everywhere"), removed
+every comment from the codebase's actual source: 141 backend `.ts` files,
+40 frontend `.ts`/`.tsx` files, all 17 SQL migrations
+(`backend/src/db/migrations/*.sql`), and the 3 `deploy/` config files
+(`Dockerfile`, `docker-compose.yml`, `codebase-engineer.service`).
+
+Method: a custom TypeScript-scanner-based stripper (not a naive regex) that
+identifies exact comment-token byte ranges — correctly distinguishing
+comments from regex literals, template literals (including nested `${...}`
+substitutions), and string literals — and deletes only those ranges,
+leaving all other bytes untouched. SQL/`#`-comment files used a
+quote-aware line-based stripper. Every file was re-parsed with 0 syntax
+errors after stripping (157 backend + 54 frontend files, 100%), and all 17
+SQL migrations were replayed in order against a fresh SQLite database with
+no errors.
+
+Two things worth knowing about this pass:
+- `frontend/src/vite-env.d.ts` consisted of exactly one triple-slash
+  reference directive (`/// <reference types="vite/client" />`), which is
+  lexically a comment but has real compiler meaning (it's what makes
+  `import.meta.env` typecheck). The first stripping pass removed it,
+  breaking the frontend build (`tsc` reported `Property 'env' does not
+  exist on type 'ImportMeta'`); caught and restored.
+- 8 `// eslint-disable-next-line ...` comments were also removed (they're
+  ordinary comments to a parser, but carry lint-suppression meaning). No
+  lint step currently runs in this project's build/test pipeline, so this
+  doesn't break anything today, but if eslint is ever wired in, those
+  suppressed warnings (`no-console`, `react-hooks/exhaustive-deps`, etc.)
+  will resurface.
+
+Full `tsc -b`/`vite build` could not be run to completion in the working
+session that made this change (consistent, unrelated environment slowness
+against this project's network-mounted working directory, hit repeatedly
+this session even on unmodified files) — the per-file parse check and the
+real SQLite replay are strong but not complete substitutes for a real
+build; run `npm run build` in both `backend/` and `frontend/` locally to
+get the authoritative confirmation.
+
+## Unreleased (audit fixes — multi-tenancy, secret redaction, context dedup, frontend state bugs)
+
+A rigorous re-audit of the codebase (not just its own phase-completion
+docs) surfaced one critical and several medium/high-severity issues, all
+fixed and verified in this pass.
+
+### Fixed — CRITICAL: cross-account project access (multi-tenancy gap)
+- `backend/src/db/migrations/018_project_owner.sql` adds a nullable
+  `project.user_id` column (`REFERENCES user(id) ON DELETE CASCADE`), an
+  index on it, and a one-time backfill that assigns any existing
+  ownerless projects to the earliest-registered account (a no-op on a
+  fresh/legacy install with no accounts yet).
+- `backend/src/db/projectRepo.ts` adds `getProjectForOwner(db, id,
+  ownerUserId)`: with auth disabled (`ownerUserId === undefined`, i.e. no
+  accounts exist anywhere on the instance) it behaves exactly as before;
+  once accounts exist, it returns `undefined` — indistinguishable from
+  "not found" — for a project owned by a different account, and treats
+  legacy ownerless projects as inaccessible (fail closed) rather than
+  leaking them to every account. `listProjects` was similarly scoped.
+- `backend/src/routes/projects.ts`, `githubRepos.ts`, `googleDrive.ts`:
+  every project lookup now goes through `getProjectForOwner(db, id,
+  request.user?.id)` instead of the old unscoped `getProjectById`, and
+  every `createProject()` call now records the creating account.
+- Previously, once a second account registered on a shared instance, any
+  authenticated user could read, modify, or delete any other account's
+  projects (including patches, findings, and AI request history) simply
+  by guessing/incrementing a project id — the route layer checked "is
+  this user logged in?" but never "does this user own this project?".
+- New `backend/test/projectOwnership.test.ts` (4 tests, real HTTP
+  requests via `app.inject()` with two separately-registered accounts):
+  cross-account read → 404, cross-account delete/settings-patch → 404,
+  project listing is scoped per-account, and legacy single-user mode (no
+  accounts registered) remains fully unrestricted as designed.
+
+### Fixed — HIGH: shared loading/error state across findings and test runs
+- `frontend/src/pages/Findings.tsx`: all 7 per-finding action panels
+  (context, explain, root-cause, fix-plan, patches, self-review,
+  generated-tests) stored loading/error state as a single `string | null`
+  shared across every finding on the page. Triggering an action on one
+  finding, then switching to another before it resolved, showed the first
+  finding's loading spinner or error message on the second finding (and
+  vice versa). Converted all 7 to `Record<findingId, boolean>` /
+  `Record<findingId, string>` maps so each finding's UI state is
+  independent.
+- `frontend/src/pages/Tests.tsx`: the diagnosis panel's loading/error
+  state had the same bug, keyed per test run instead of globally; same
+  fix applied (`Record<testRunId, boolean/string>`).
+
+### Fixed — HIGH: stale async responses on rapid project/run switching
+- `frontend/src/pages/Findings.tsx`, `Changes.tsx`, `Tests.tsx`: each
+  page's main `load()` (and `Tests.tsx`'s nested run-fetch) had no
+  protection against out-of-order network responses — switching projects
+  or test runs quickly could let an older, slower request's response
+  overwrite the UI after a newer request had already resolved, silently
+  showing stale data for the wrong project/run. Added a monotonic
+  request-id guard (`useRef` counter, captured at call start, checked
+  before committing state in every `.then()`/`.catch()`/`.finally()`) to
+  all three.
+
+### Fixed — MEDIUM: secret-redaction pattern gaps
+- `backend/src/security/secretPatterns.ts`: the `hardcoded-secret` rule's
+  pattern list missed several common real-world secret shapes. Added AWS
+  secret access keys, JWTs (`eyJ...`.`...`.`...`), and unquoted
+  `key = value`-style credentials (e.g. `password = abc123...` with no
+  surrounding quotes) — previously all three would have appeared
+  unredacted in finding evidence. 4 new tests in
+  `backend/test/secretPatterns.test.ts`, including a negative test to
+  confirm short, non-secret-looking config values are still left alone.
+
+### Fixed — MEDIUM: duplicate files in AI context selection
+- `backend/src/ai/context/select.ts`: a file reachable via more than one
+  path in the candidate graph (e.g. both a direct import and a circular
+  import back-reference) could be pushed into the candidate list twice,
+  wasting context budget and duplicating file content sent to the model.
+  Added a `seenCandidatePaths` set so every candidate is considered at
+  most once. New regression test in
+  `backend/test/aiContextSelect.test.ts` covers the circular-import case.
+
+### Verified, not changed
+- Reviewed migration `017` (the historical `apply_mode` default flip) as
+  part of this audit. It cannot be fixed retroactively: the column has no
+  way to distinguish "a user never touched this setting" from "a user
+  deliberately set it to the old default" after the fact, so any
+  corrective migration would silently overwrite a real prior choice for
+  some users to fix a default for others. Left as-is; noted here for
+  visibility.
+
+### Verification
+All 52 backend test files (~450+ tests, including the 3 new/updated
+files above) pass with zero failures. All frontend test files pass
+except `Login.test.tsx` and `Register.test.tsx` (4 tests total), which
+were investigated and confirmed **pre-existing and unrelated** to this
+change: swapping in the untouched, original (pre-session) versions of
+`Login.tsx`, `Login.test.tsx`, `Register.tsx`, `Register.test.tsx`, and
+`Turnstile.tsx` and re-running reproduces the identical 4 failures, so
+this is an existing Turnstile-mocking test gap, not a regression from
+this pass. `tsc -b` (both `backend/` and `frontend/`, run against a
+fresh local install) passes with zero errors.

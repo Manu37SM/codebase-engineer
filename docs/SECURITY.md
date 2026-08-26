@@ -220,18 +220,25 @@ undocumented:**
   password resets," and "reset sessions on password change" from the
   checklist are not applicable — there's no such flow to secure yet, not
   a secured-but-broken one.
-- **No per-account data isolation on projects/findings/patches.** Only
-  the `user`/`session`/`oauth_identity` tables are scoped by `user_id`;
-  `project` and everything under it are not. In this product's
-  documented architecture (self-hosted, typically single-user or a
-  small team sharing one instance, explicitly *not* a multi-tenant
-  SaaS), auth is a perimeter control — "is this a legitimate user of
-  this instance" — rather than per-user data partitioning within it.
-  That's a deliberate scope match to the stated architecture, not an
-  oversight, but it means anyone who registers an account on a shared
-  instance can see every project registered on it. Worth confirming
-  explicitly if the intended deployment is ever a shared multi-user
-  instance rather than one person's own machine.
+- ~~No per-account data isolation on projects/findings/patches~~ —
+  **closed.** Re-examined and reclassified as a real gap rather than a
+  deliberate scope match: even on this product's documented
+  single-user/small-team self-hosted architecture, letting any
+  registered account read or delete any other account's projects the
+  moment a second account exists is not a reasonable "perimeter only"
+  tradeoff — it means the act of a second person signing up silently
+  removes every other user's project isolation with no way to opt out.
+  `project.user_id` (migration `018_project_owner.sql`) now scopes every
+  project (and everything under it — findings, patches, AI request
+  history) to its creating account via `getProjectForOwner()`
+  (`backend/src/db/projectRepo.ts`), enforced on every route in
+  `routes/projects.ts`/`githubRepos.ts`/`googleDrive.ts`. A legacy
+  ownerless project is backfilled to the earliest-registered account by
+  the migration; a single-account or no-account instance (the common
+  self-hosted case) behaves exactly as before. Verified with
+  `backend/test/projectOwnership.test.ts` (real two-account HTTP
+  requests: cross-account read/delete/settings-patch all return 404,
+  listing is scoped, legacy no-accounts mode stays unrestricted).
 - **No account lockout after repeated failed logins beyond the new IP
   rate limit above** — a determined attacker distributing guesses
   across many IPs isn't slowed by an IP-keyed limiter. Not added in
