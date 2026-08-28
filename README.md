@@ -16,28 +16,14 @@ analysis, test runner, dependency/security analysis, audit reports, and the
 complete AI Mode workflow from context selection through self-review), plus
 security-hardening, performance-optimization, packaging (this doc's "Running
 the packaged app" section below), and deployment/self-hosting passes
-(`docs/DEPLOYMENT.md`). Phase 26 adds an entirely opt-in monetization
-architecture (`docs/MONETIZATION.md`) — inactive by default; every other
-feature works identically with or without it configured. See
-`/docs/ROADMAP.md` and `/docs/FEATURE.md` for the authoritative, per-feature
-status — this line is a summary, `FEATURE.md` is the source of truth.
+(see "Self-hosting" below). Phase 26 adds an entirely opt-in monetization
+architecture — inactive by default; every other feature works identically
+with or without it configured.
 
 ## Documentation
 
-- [`docs/PRD.md`](docs/PRD.md) — product requirements
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system design
-- [`docs/FEATURE.md`](docs/FEATURE.md) — feature status (source of truth)
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — phased plan
-- [`docs/SECURITY.md`](docs/SECURITY.md) — security model
-- [`docs/TESTING.md`](docs/TESTING.md) — testing strategy
-- [`docs/ADR.md`](docs/ADR.md) — architecture decisions
-- [`docs/AI_MODE.md`](docs/AI_MODE.md) — AI capability design
-- [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) — profiling methodology and results
-- [`docs/PACKAGING.md`](docs/PACKAGING.md) — building and running as a single process
-- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — self-hosting via Docker or systemd
-- [`docs/MONETIZATION.md`](docs/MONETIZATION.md) — optional monetization architecture (opt-in, inactive by default)
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — full change history
-- [`progress/CURRENT.md`](progress/CURRENT.md) / [`COMPLETED.md`](progress/COMPLETED.md) / [`BLOCKED.md`](progress/BLOCKED.md)
+This README is the project-level entry point. The former `docs/` set was
+removed after launch; its history remains in this repo's git log.
 
 Each subproject also has its own README with subproject-specific
 run/build/test instructions: [`backend/README.md`](backend/README.md),
@@ -51,8 +37,6 @@ subproject in more depth.
 backend/    Node.js + TypeScript + Fastify API, SQLite persistence (own README, own git history)
 frontend/   React + TypeScript + Vite + Tailwind CSS SPA (own README, own git history)
 deploy/     Dockerfile, docker-compose.yml, and the systemd unit — deployment artifacts
-docs/       Documentation (source of truth for scope/status) + CHANGELOG.md
-progress/   Living progress tracking
 ```
 
 `backend/` and `frontend/` are each tracked in their own git repository
@@ -98,8 +82,8 @@ cd ../backend && npm install && npm run build
 npm start   # http://127.0.0.1:4000 — UI and API on one process, one port
 ```
 
-See [`docs/PACKAGING.md`](docs/PACKAGING.md) for details, environment
-variables, and what this phase does and doesn't cover.
+Environment variables are documented in `backend/.env.example` and
+`frontend/.env.example`.
 
 ### Self-hosting (Docker or systemd)
 
@@ -110,11 +94,9 @@ still the repo root — run this from the repo root:
 docker compose -f deploy/docker-compose.yml --project-directory . up -d --build   # http://localhost:4000
 ```
 
-See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the Docker and systemd
-paths, how to give it access to repositories on your machine, backup/
-upgrade steps, and important security notes (there's no built-in
-authentication — read that doc before exposing this beyond your own
-machine).
+`deploy/codebase-engineer.service` is the systemd unit for a non-Docker
+install. Review `deploy/docker-compose.yml`'s `environment:` block before
+exposing this beyond your own machine.
 
 ## Version control layout
 
@@ -126,7 +108,7 @@ one repo-wide history:
 - `frontend/` — its own repo (`frontend/.git`), covering only frontend
   source/tests.
 - The repo root — its own repo, covering everything that isn't inside
-  `backend/` or `frontend/`: `docs/`, `progress/`, `deploy/` (Dockerfile,
+  `backend/` or `frontend/`: `deploy/` (Dockerfile,
   compose file, systemd unit), and this README. The root repo's
   `.gitignore` excludes `backend/` and `frontend/` outright, since those
   are independently version-controlled — the root repo never sees inside
