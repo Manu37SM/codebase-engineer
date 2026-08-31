@@ -1,6 +1,6 @@
 
 
-FROM node:22-bookworm-slim AS frontend-build
+FROM node:26-bookworm-slim AS frontend-build
 WORKDIR /app/frontend
 
 ARG VITE_TURNSTILE_SITE_KEY=""
@@ -10,7 +10,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM node:22-bookworm-slim AS backend-build
+FROM node:26-bookworm-slim AS backend-build
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 make g++ \
@@ -24,7 +24,7 @@ COPY --from=frontend-build /app/frontend/dist /app/frontend/dist
 RUN npm run build
 RUN npm prune --omit=dev
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates python3 python3-pip \
