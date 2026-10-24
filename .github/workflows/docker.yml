@@ -23,9 +23,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Manu37SM/codebase-engineer-backend
+          ref: fix/backend-deps-and-ci
           path: backend
       - uses: actions/checkout@v4
         with:
           repository: Manu37SM/codebase-engineer-frontend
+          ref: fix/frontend-deps-and-build
           path: frontend
       - run: docker build -f deploy/Dockerfile -t codebase-engineer:ci .
