@@ -19,12 +19,12 @@ jobs:
     steps:
       # backend/ and frontend/ are separate repos (gitignored here), so the
       # Dockerfile's build context has to be assembled from all three.
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: Manu37SM/codebase-engineer-backend
           path: backend
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: Manu37SM/codebase-engineer-frontend
           path: frontend
