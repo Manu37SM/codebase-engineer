@@ -1,0 +1,31 @@
+name: Docker image
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build deploy image
+    runs-on: ubuntu-latest
+    steps:
+      # backend/ and frontend/ are separate repos (gitignored here), so the
+      # Dockerfile's build context has to be assembled from all three.
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: Manu37SM/codebase-engineer-backend
+          path: backend
+      - uses: actions/checkout@v7
+        with:
+          repository: Manu37SM/codebase-engineer-frontend
+          path: frontend
+      - run: docker build -f deploy/Dockerfile -t codebase-engineer:ci .
