@@ -1,0 +1,37 @@
+From aa3ab150226656e3fb7dc0d1753f436c5c267358 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 24 Oct 2026 11:04:39 +0000
+Subject: [PATCH 3/5] fix(build): use function form of manualChunks for Vite 8
+
+Vite 8 (Rolldown) rejects the object form: 'manualChunks is not a function'.
+Production build was broken since the vite 5 -> 8 bump.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01AcRWToNeMR3FSJbaVE45MG
+---
+ vite.config.ts | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/vite.config.ts b/vite.config.ts
+index a010335..3f6c5ad 100644
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -17,8 +17,13 @@ export default defineConfig({
+         // size — splitting it into its own chunk means every other page
+         // (which never imports Charts.tsx) doesn't pay for it on first
+         // load.
+-        manualChunks: {
+-          charts: ["recharts"],
++        // Function form: Vite 8 (Rolldown) rejects the object form of
++        // `manualChunks`. Also pulls in recharts' d3/victory-vendor deps so
++        // the chunk matches what the old object form produced.
++        manualChunks(id: string) {
++          if (/node_modules\/(recharts|d3-[^/]+|victory-vendor|internmap)\//.test(id)) {
++            return "charts";
++          }
+         },
+       },
+     },
+-- 
+2.43.0
+

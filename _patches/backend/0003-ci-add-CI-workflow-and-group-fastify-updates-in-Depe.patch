@@ -1,0 +1,76 @@
+From c8aa3296765a614ac95dec29f228168bc686cd8e Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 24 Oct 2026 11:04:39 +0000
+Subject: [PATCH 3/3] ci: add CI workflow and group fastify updates in
+ Dependabot
+
+There were no workflows, so Dependabot's github_actions job failed weekly
+("/.github/workflows/<anything>.yml not found") and merged PRs ran no checks.
+CI runs typecheck, tests and build on Node 22 and 26.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01AcRWToNeMR3FSJbaVE45MG
+---
+ .github/dependabot.yml   |  5 +++++
+ .github/workflows/ci.yml | 33 +++++++++++++++++++++++++++++++++
+ 2 files changed, 38 insertions(+)
+ create mode 100644 .github/workflows/ci.yml
+
+diff --git a/.github/dependabot.yml b/.github/dependabot.yml
+index 4fbfa38..7af74bf 100644
+--- a/.github/dependabot.yml
++++ b/.github/dependabot.yml
+@@ -5,6 +5,11 @@ updates:
+     schedule:
+       interval: "weekly"
+     open-pull-requests-limit: 10
++    groups:
++      fastify:
++        patterns:
++          - "fastify"
++          - "@fastify/*"
+   - package-ecosystem: "github-actions"
+     directory: "/"
+     schedule:
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..c5b2453
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,33 @@
++name: CI
++
++on:
++  push:
++    branches: [master]
++  pull_request:
++
++permissions:
++  contents: read
++
++concurrency:
++  group: ci-${{ github.ref }}
++  cancel-in-progress: true
++
++jobs:
++  test:
++    name: Typecheck, test, build (Node ${{ matrix.node }})
++    runs-on: ubuntu-latest
++    strategy:
++      fail-fast: false
++      matrix:
++        # 26 is what deploy/Dockerfile ships; 22 is the previous LTS.
++        node: [22, 26]
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-node@v4
++        with:
++          node-version: ${{ matrix.node }}
++          cache: npm
++      - run: npm ci
++      - run: npm run typecheck
++      - run: npm test
++      - run: npm run build
+-- 
+2.43.0
+

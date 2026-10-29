@@ -1,0 +1,78 @@
+From bfc3986add3f985e3bc10d6a1bf5c1c2e4dd69b3 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 24 Oct 2026 11:04:39 +0000
+Subject: [PATCH 5/5] ci: add CI workflow and group react packages in
+ Dependabot
+
+Adds build + test on Node 22 and 26, and groups react, react-dom and their
+@types so Dependabot cannot split them into a broken intermediate state.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01AcRWToNeMR3FSJbaVE45MG
+---
+ .github/dependabot.yml   |  9 +++++++++
+ .github/workflows/ci.yml | 32 ++++++++++++++++++++++++++++++++
+ 2 files changed, 41 insertions(+)
+ create mode 100644 .github/workflows/ci.yml
+
+diff --git a/.github/dependabot.yml b/.github/dependabot.yml
+index 4fbfa38..ef09ef9 100644
+--- a/.github/dependabot.yml
++++ b/.github/dependabot.yml
+@@ -5,6 +5,15 @@ updates:
+     schedule:
+       interval: "weekly"
+     open-pull-requests-limit: 10
++    groups:
++      # react / react-dom must have the exact same version, and @types/* must
++      # match the major — separate PRs produce a broken intermediate state.
++      react:
++        patterns:
++          - "react"
++          - "react-dom"
++          - "@types/react"
++          - "@types/react-dom"
+   - package-ecosystem: "github-actions"
+     directory: "/"
+     schedule:
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..8df32da
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,32 @@
++name: CI
++
++on:
++  push:
++    branches: [master]
++  pull_request:
++
++permissions:
++  contents: read
++
++concurrency:
++  group: ci-${{ github.ref }}
++  cancel-in-progress: true
++
++jobs:
++  test:
++    name: Build and test (Node ${{ matrix.node }})
++    runs-on: ubuntu-latest
++    strategy:
++      fail-fast: false
++      matrix:
++        # 26 is what deploy/Dockerfile ships; 22 is the previous LTS.
++        node: [22, 26]
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-node@v4
++        with:
++          node-version: ${{ matrix.node }}
++          cache: npm
++      - run: npm ci
++      - run: npm run build   # tsc -b && vite build
++      - run: npm test
+-- 
+2.43.0
+
